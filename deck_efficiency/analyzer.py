@@ -46,6 +46,17 @@ KNOWN_CARD_ROLES = {
     'energy retrieval': {'energy_recovery'},
     'superior energy retrieval': {'energy_recovery'},
     'earthen vessel': {'energy_recovery', 'search'},
+    'pokégear 3.0': {'search', 'consistency'},
+    'pokegear 3.0': {'search', 'consistency'},
+    'team rocket\'s petrel': {'draw', 'disruption'},
+    "brock's scouting": {'search', 'consistency'},
+    "lillie's determination": {'draw', 'consistency'},
+    'kieran': {'draw', 'utility'},
+    "xerosic's machinations": {'disruption'},
+    'gravity mountain': {'stadium'},
+    "hero's cape": {'tool'},
+    'tool scrapper': {'tool', 'disruption'},
+    'jumbo ice cream': {'recovery'},
 }
 
 TRAINER_KEYWORDS = {
@@ -54,6 +65,13 @@ TRAINER_KEYWORDS = {
 }
 ENERGY_KEYWORDS = {'energy', 'energies'}
 POKEMON_MARKERS = {' ex', ' v', ' vmax', ' vstar', ' gx'}
+
+
+@dataclass
+class ParsedCard:
+    count: int
+    name: str
+    section: str | None = None
 
 
 @dataclass
@@ -75,33 +93,65 @@ def normalise_name(name: str) -> str:
     return re.sub(r'\s+', ' ', name.strip().lower().replace('’', "'"))
 
 
+def clean_card_name(name: str) -> str:
+    """Remove common export set/collector suffixes, keeping the printed card name.
+
+    Examples:
+    - "Boss's Orders MEG 114" -> "Boss's Orders"
+    - "Mega Excadrill ex PBL 65" -> "Mega Excadrill ex"
+    - "Pokégear 3.0 SVI 186" -> "Pokégear 3.0"
+    """
+    cleaned = re.sub(r'\s+', ' ', name.strip())
+    cleaned = re.sub(r'\s+[A-Z]{2,6}\s+\d+[a-z]?$', '', cleaned)
+    return cleaned.strip()
+
+
+def normalize_section(line: str) -> str | None:
+    key = normalise_name(line).replace(':', '').strip()
+    key = key.split()[0] if key else key
+    if key in {'pokemon', 'pokémon'}:
+        return 'Pokémon'
+    if key in {'trainer', 'trainers'}:
+        return 'Trainer'
+    if key in {'energy', 'energies'}:
+        return 'Energy'
+    return None
+
+
 def has_word(text: str, word: str) -> bool:
     """Match a standalone word/phrase without treating 'research' as 'search'."""
     return re.search(rf'(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])', text) is not None
 
 
-def parse_decklist(deck_text: str) -> list[tuple[int, str]]:
-    cards: list[tuple[int, str]] = []
+def parse_decklist(deck_text: str) -> list[ParsedCard]:
+    cards: list[ParsedCard] = []
+    current_section: str | None = None
     for raw_line in deck_text.splitlines():
         line = raw_line.strip()
         if not line or line.startswith('#'):
             continue
-        # Ignore common section headers from exports.
-        if line.lower().rstrip(':') in {'pokemon', 'trainer', 'trainers', 'energy', 'energies'}:
+
+        section = normalize_section(line)
+        if section:
+            current_section = section
             continue
+
         match = re.match(r'^(\d+)\s*x?\s+(.+)$', line, flags=re.I)
         if not match:
             match = re.match(r'^(.+?)\s+x(\d+)$', line, flags=re.I)
             if match:
                 name, count = match.group(1), int(match.group(2))
-                cards.append((count, name.strip()))
+                cards.append(ParsedCard(count, name.strip(), current_section))
             continue
-        cards.append((int(match.group(1)), match.group(2).strip()))
+        cards.append(ParsedCard(int(match.group(1)), match.group(2).strip(), current_section))
     return cards
 
 
-def categorize(name: str, roles: set[str]) -> str:
-    n = normalise_name(name)
+def categorize(name: str, roles: set[str], section: str | None = None) -> str:
+    if section in {'Pokémon', 'Trainer', 'Energy'}:
+        return section
+
+    n = normalise_name(clean_card_name(name))
     if 'energy' in roles or any(k in n for k in ENERGY_KEYWORDS):
         return 'Energy'
     if roles & {'draw', 'search', 'pokemon_search', 'gust', 'switch', 'evolution_support', 'stadium', 'tool'}:
@@ -112,7 +162,7 @@ def categorize(name: str, roles: set[str]) -> str:
 
 
 def infer_roles(name: str) -> set[str]:
-    n = normalise_name(name)
+    n = normalise_name(clean_card_name(name))
     roles = set(KNOWN_CARD_ROLES.get(n, set()))
     if 'energy' in n:
         roles.add('energy')
@@ -173,11 +223,12 @@ def score_card(count: int, category: str, roles: set[str], total_cards: int) -> 
 def analyze_deck(deck_text: str) -> dict:
     parsed = parse_decklist(deck_text)
     cards: list[DeckCard] = []
-    for count, name in parsed:
-        roles = infer_roles(name)
-        category = categorize(name, roles)
-        efficiency, note = score_card(count, category, roles, sum(c for c, _ in parsed))
-        cards.append(DeckCard(count, name, category, roles, efficiency, note))
+    total_input_cards = sum(card.count for card in parsed)
+    for parsed_card in parsed:
+        roles = infer_roles(parsed_card.name)
+        category = categorize(parsed_card.name, roles, parsed_card.section)
+        efficiency, note = score_card(parsed_card.count, category, roles, total_input_cards)
+        cards.append(DeckCard(parsed_card.count, parsed_card.name, category, roles, efficiency, note))
 
     total = sum(c.count for c in cards)
     by_category = {'Pokémon': 0, 'Trainer': 0, 'Energy': 0}
