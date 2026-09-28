@@ -45,9 +45,14 @@ This app should deploy cleanly on a free-tier PythonAnywhere account:
 4. Point the WSGI file at `app:app`.
 5. Avoid downloading card images or large API caches unless a later version explicitly adds storage controls.
 
+## Card tagging strategy
+
+The current MVP uses section-aware deck parsing, set-code cleanup, and a small starter override list for staples. The long-term plan is documented in [`docs/tagging-strategy.md`](docs/tagging-strategy.md): use decklist sections and card database metadata for category, infer roles from card text, and keep manual overrides only for exceptions.
+
 ## Roadmap
 
-- Better card database/tagging
+- Pokémon TCG API lookup with a lightweight local cache
+- Text-based role inference from real card rules text
 - Format legality support
 - Probability math for opening hands and turn-by-turn consistency
 - LimitlessTCG deck import/export helpers
