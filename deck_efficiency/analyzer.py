@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, asdict
 import re
-from typing import Iterable
 
 DECK_SIZE = 60
 
@@ -76,6 +75,11 @@ def normalise_name(name: str) -> str:
     return re.sub(r'\s+', ' ', name.strip().lower().replace('’', "'"))
 
 
+def has_word(text: str, word: str) -> bool:
+    """Match a standalone word/phrase without treating 'research' as 'search'."""
+    return re.search(rf'(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])', text) is not None
+
+
 def parse_decklist(deck_text: str) -> list[tuple[int, str]]:
     cards: list[tuple[int, str]] = []
     for raw_line in deck_text.splitlines():
@@ -112,7 +116,7 @@ def infer_roles(name: str) -> set[str]:
     roles = set(KNOWN_CARD_ROLES.get(n, set()))
     if 'energy' in n:
         roles.add('energy')
-    if 'ball' in n or 'poffin' in n or 'search' in n:
+    if has_word(n, 'ball') or 'poffin' in n or has_word(n, 'search'):
         roles.update({'search', 'pokemon_search'})
     if 'research' in n or 'draw' in n or n == 'iono':
         roles.add('draw')
@@ -152,9 +156,9 @@ def score_card(count: int, category: str, roles: set[str], total_cards: int) -> 
     if 'evolution_support' in roles and count >= 3:
         note_bits.append('strong if the deck relies on Stage 2 setup')
 
-    if count > 4:
+    if count > 4 and 'energy' not in roles:
         base -= 25
-        note_bits.append('count exceeds normal 4-copy rule unless Basic Energy')
+        note_bits.append('count exceeds normal 4-copy rule')
 
     if category == 'Pokémon' and 'attacker' not in roles:
         base = max(base, 58)
