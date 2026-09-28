@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pokémon TCG Deck Efficiency Analyzer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero card">
+      <div>
+        <p class="eyebrow">MVP deckbuilding tool</p>
+        <h1>Pokémon TCG Deck Efficiency Analyzer</h1>
+        <p>Paste a decklist and get a quick read on consistency, roles, efficiency, and missing deckbuilding pieces.</p>
+      </div>
+      <div class="score-badge">
+        {% if analysis %}
+          <span>{{ analysis.average_efficiency }}</span>
+          <small>avg efficiency</small>
+        {% else %}
+          <span>TCG</span>
+          <small>deck scanner</small>
+        {% endif %}
+      </div>
+    </section>
+
+    <form class="card deck-form" method="post">
+      <label for="decklist">Decklist</label>
+      <textarea id="decklist" name="decklist" spellcheck="false">{{ deck_text }}</textarea>
+      <button type="submit">Analyze deck</button>
+    </form>
+
+    {% if analysis %}
+    <section class="grid two">
+      <div class="card">
+        <h2>Deck summary</h2>
+        <div class="pill-row">
+          <span class="pill {% if analysis.deck_size_ok %}good{% else %}warn{% endif %}">{{ analysis.total_cards }} / 60 cards</span>
+          {% for name, count in analysis.by_category.items() %}
+            <span class="pill">{{ name }}: {{ count }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card">
+        <h2>Suggestions</h2>
+        <ul class="suggestions">
+          {% for suggestion in analysis.suggestions %}<li>{{ suggestion }}</li>{% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Role breakdown</h2>
+      <div class="role-grid">
+        {% for role, count in analysis.role_counts.items() %}
+          <div class="role"><strong>{{ role.replace('_', ' ') }}</strong><span>{{ count }}</span></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Card efficiency</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Count</th><th>Card</th><th>Category</th><th>Roles</th><th>Score</th><th>Notes</th></tr></thead>
+          <tbody>
+          {% for card in analysis.cards %}
+            <tr>
+              <td>{{ card.count }}</td>
+              <td class="card-name">{{ card.name }}</td>
+              <td>{{ card.category }}</td>
+              <td>{{ card.roles|join(', ') }}</td>
+              <td><span class="meter">{{ card.efficiency }}</span></td>
+              <td>{{ card.note }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+</body>
+</html>
