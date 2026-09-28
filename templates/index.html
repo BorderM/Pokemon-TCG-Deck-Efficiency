@@ -8,11 +8,11 @@
 </head>
 <body>
   <main class="shell">
-    <section class="hero card">
+    <section class="hero card compact-card">
       <div>
         <p class="eyebrow">MVP deckbuilding tool</p>
         <h1>Pokémon TCG Deck Efficiency Analyzer</h1>
-        <p>Paste a decklist and get a quick read on consistency, roles, efficiency, and missing deckbuilding pieces.</p>
+        <p>Paste a decklist, scan its roles, and spot consistency gaps without digging through a giant sheet.</p>
       </div>
       <div class="score-badge">
         {% if analysis %}
@@ -25,61 +25,100 @@
       </div>
     </section>
 
-    <form class="card deck-form" method="post">
-      <label for="decklist">Decklist</label>
-      <textarea id="decklist" name="decklist" spellcheck="false">{{ deck_text }}</textarea>
-      <button type="submit">Analyze deck</button>
-    </form>
+    <section class="workspace">
+      <aside class="left-rail">
+        <form class="card deck-form compact-card" method="post">
+          <div class="section-heading">
+            <label for="decklist">Decklist</label>
+            <span class="hint">Paste export text</span>
+          </div>
+          <textarea id="decklist" name="decklist" spellcheck="false">{{ deck_text }}</textarea>
+          <button type="submit">Analyze deck</button>
+        </form>
 
-    {% if analysis %}
-    <section class="grid two">
-      <div class="card">
-        <h2>Deck summary</h2>
-        <div class="pill-row">
-          <span class="pill {% if analysis.deck_size_ok %}good{% else %}warn{% endif %}">{{ analysis.total_cards }} / 60 cards</span>
-          {% for name, count in analysis.by_category.items() %}
-            <span class="pill">{{ name }}: {{ count }}</span>
-          {% endfor %}
-        </div>
-      </div>
-      <div class="card">
-        <h2>Suggestions</h2>
-        <ul class="suggestions">
-          {% for suggestion in analysis.suggestions %}<li>{{ suggestion }}</li>{% endfor %}
-        </ul>
-      </div>
-    </section>
+        <section class="card compact-card tagging-card">
+          <div class="section-heading">
+            <h2>Best tagging path</h2>
+            <span class="hint">Avoid hand-tagging every card</span>
+          </div>
+          <ol class="mini-list">
+            <li><strong>Import card text</strong> from a public Pokémon TCG API.</li>
+            <li><strong>Rule-match keywords</strong>: draw, search, attach, switch, evolve, discard, bench.</li>
+            <li><strong>Human review only exceptions</strong>: popular/meta cards and weird wording.</li>
+            <li><strong>Learn from decklists</strong>: cards repeatedly seen in winning decks get stronger archetype tags.</li>
+          </ol>
+        </section>
+      </aside>
 
-    <section class="card">
-      <h2>Role breakdown</h2>
-      <div class="role-grid">
-        {% for role, count in analysis.role_counts.items() %}
-          <div class="role"><strong>{{ role.replace('_', ' ') }}</strong><span>{{ count }}</span></div>
-        {% endfor %}
-      </div>
-    </section>
+      <section class="results-stack">
+        {% if analysis %}
+        <section class="grid two dense-grid">
+          <div class="card compact-card summary-card">
+            <div class="section-heading">
+              <h2>Deck summary</h2>
+              <span class="hint">Quick legality/balance check</span>
+            </div>
+            <div class="pill-row">
+              <span class="pill {% if analysis.deck_size_ok %}good{% else %}warn{% endif %}">{{ analysis.total_cards }} / 60 cards</span>
+              {% for name, count in analysis.by_category.items() %}
+                <span class="pill">{{ name }}: {{ count }}</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="card compact-card suggestions-card">
+            <div class="section-heading">
+              <h2>Suggestions</h2>
+              <span class="hint">First-pass heuristics</span>
+            </div>
+            <ul class="suggestions">
+              {% for suggestion in analysis.suggestions %}<li>{{ suggestion }}</li>{% endfor %}
+            </ul>
+          </div>
+        </section>
 
-    <section class="card">
-      <h2>Card efficiency</h2>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Count</th><th>Card</th><th>Category</th><th>Roles</th><th>Score</th><th>Notes</th></tr></thead>
-          <tbody>
-          {% for card in analysis.cards %}
-            <tr>
-              <td>{{ card.count }}</td>
-              <td class="card-name">{{ card.name }}</td>
-              <td>{{ card.category }}</td>
-              <td>{{ card.roles|join(', ') }}</td>
-              <td><span class="meter">{{ card.efficiency }}</span></td>
-              <td>{{ card.note }}</td>
-            </tr>
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
+        <section class="card compact-card">
+          <div class="section-heading">
+            <h2>Role breakdown</h2>
+            <span class="hint">Counts by inferred function</span>
+          </div>
+          <div class="role-grid">
+            {% for role, count in analysis.role_counts.items() %}
+              <div class="role"><strong>{{ role.replace('_', ' ') }}</strong><span>{{ count }}</span></div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="card compact-card">
+          <div class="section-heading">
+            <h2>Card efficiency</h2>
+            <span class="hint">Temporary scoring until tagging improves</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Count</th><th>Card</th><th>Category</th><th>Roles</th><th>Score</th><th>Notes</th></tr></thead>
+              <tbody>
+              {% for card in analysis.cards %}
+                <tr>
+                  <td>{{ card.count }}</td>
+                  <td class="card-name">{{ card.name }}</td>
+                  <td>{{ card.category }}</td>
+                  <td>{{ card.roles|join(', ') }}</td>
+                  <td><span class="meter">{{ card.efficiency }}</span></td>
+                  <td>{{ card.note }}</td>
+                </tr>
+              {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% else %}
+        <section class="card compact-card empty-state">
+          <h2>Ready to analyze</h2>
+          <p>Use the left panel to paste a list. The first refinement target is layout and tagging logic; scores are intentionally labelled as early heuristics.</p>
+        </section>
+        {% endif %}
+      </section>
     </section>
-    {% endif %}
   </main>
 </body>
 </html>
